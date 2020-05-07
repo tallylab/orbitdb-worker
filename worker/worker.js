@@ -57,12 +57,17 @@ self.onmessage = async (message) => {
             write: [identity.id]
           }
         })
+        await self.snapshotDb.load()
+
         // Leaving this here and commented out to remember to check for determinism
         // console.log(self.snapshotDb.id)
 
         self.postMessage({
           type: 'identity-v1-success',
-          payload: self.snapshotDb.id
+          payload: {
+            id: self.snapshotDb.id,
+            lastEntry: self.snapshotDb.iterator({ limit: 1 }).collect()
+          }
         })
       } catch (e) { self.postMessage({ type: 'identity-v1-error', payload: e }) }
       break;
