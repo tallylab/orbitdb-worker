@@ -1,5 +1,5 @@
 /* global importScripts, self, Ipfs, nacl_factory, OrbitDB */
-/* global TallyLabIdentities, TallyLabAccess, Keystore */
+/* global TallyLabIdentities, TallyLabAccess, Keystore, fetch */
 
 // TODO: Why am I patching this?? Doesn't js-ipfs have web worker support?
 if (!window) var window = self /* eslint-disable-line */
@@ -31,7 +31,11 @@ self.onmessage = async (message) => {
           preload: { enabled: false },
           relay: { enabled: true, hop: { enabled: true, active: true } },
           EXPERIMENTAL: { pubsub: true },
-          config: { Bootstrap: [], Addresses: { Swarm: [] } }
+          config: {
+            Addresses: {
+              Swarm: ['/dns4/ws-star.discovery.libp2p.io/tcp/443/wss/p2p-websocket-star']
+            }
+          }
         })
 
         // Manually sign the tlKeys with the OrbitDB ahead of time, via our own keystore
@@ -58,12 +62,37 @@ self.onmessage = async (message) => {
           accessController: {
             type: 'tallylab',
             write: [self.identity.id]
-          }
+          },
+          replicate: true,
+          sync: true
         })
         await self.snapshotDb.load()
 
-        // Leaving this here and commented out to remember to check for determinism
+        // Uncomment to check for peers
+        // TODO: Replace with proper tracing
+        // setInterval(async () => {
+        //   const peers = (await self.ipfs.swarm.peers())
+        //     .map(p => p.addr.toString())
+
+        //   console.log(peers)
+        // }, 2000)
+
+        let replicationDebounce
+        self.snapshotDb.events.on('replicated', (address) => {
+          clearTimeout(replicationDebounce)
+          replicationDebounce = setTimeout(() => {
+            self.postMessage({
+              type: 'replicated-v1-success',
+              payload: { address }
+            })
+          }, 1000)
+        })
+
+        // Uncomment to check for determinism
         // console.log(self.snapshotDb.id)
+
+        const res = await fetch(`http://73.69.77.29:3000/pin?address=${self.snapshotDb.id}`)
+        console.log(await res.text())
 
         self.postMessage({
           type: 'identity-v1-success',
