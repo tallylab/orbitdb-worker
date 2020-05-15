@@ -14,12 +14,13 @@ importScripts('tallylab-orbitdb-access.min.js')
 self.tlIdentities = new TallyLabIdentities()
 self.tlAccess = new TallyLabAccess()
 
-nacl_factory.instantiate((nacl) => {
-  self.nacl = nacl
-})
+nacl_factory.instantiate((nacl) => { self.nacl = nacl })
 
 self.onmessage = async (message) => {
   switch (message.data.type) {
+    case 'pinning-service-v1':
+      self.PINNING_ADDR = message.data.payload
+      break
     // Implements the TallyLabIdentityProvider
     // See https://github.com/tallylab/tallylab-orbitdb-access-controller
     case 'identity-v1':
@@ -32,8 +33,11 @@ self.onmessage = async (message) => {
           relay: { enabled: true, hop: { enabled: true, active: true } },
           EXPERIMENTAL: { pubsub: true },
           config: {
+            Bootstrap: [
+              self.PINNING_ADDR
+            ],
             Addresses: {
-              Swarm: ['/dns4/ws-star.discovery.libp2p.io/tcp/443/wss/p2p-websocket-star']
+              Swarm: []
             }
           }
         })
@@ -91,7 +95,8 @@ self.onmessage = async (message) => {
         // Uncomment to check for determinism
         // console.log(self.snapshotDb.id)
 
-        const res = await fetch(`http://73.69.77.29:3000/pin?address=${self.snapshotDb.id}`)
+        const pinningHttpHost = self.PINNING_ADDR.split('/')[2]
+        const res = await fetch(`http://${pinningHttpHost}:3000/pin?address=${self.snapshotDb.id}`)
         console.log(await res.text())
 
         self.postMessage({
@@ -116,7 +121,7 @@ self.onmessage = async (message) => {
       } catch (e) { self.postMessage({ type: 'snapshot-v1-error', payload: e }) }
       break
     default:
-      console.warn('unknown message type')
+      console.warn(`Unknown message type: ${message.data.type}`)
       break
   }
 }
