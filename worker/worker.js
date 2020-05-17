@@ -86,8 +86,11 @@ self.onmessage = async (message) => {
           clearTimeout(replicationDebounce)
           replicationDebounce = setTimeout(() => {
             self.postMessage({
-              type: 'replicated-v1-success',
-              payload: { address }
+              type: 'state-v1',
+              payload: {
+                id: self.snapshotDb.id,
+                lastEntry: self.snapshotDb.iterator({ limit: 1 }).collect()
+              }
             })
           }, 1000)
         })
@@ -96,17 +99,22 @@ self.onmessage = async (message) => {
         // console.log(self.snapshotDb.id)
 
         const pinningHttpHost = self.PINNING_ADDR.split('/')[2]
-        const res = await fetch(`http://${pinningHttpHost}:3000/pin?address=${self.snapshotDb.id}`)
-        console.log(await res.text())
+        await fetch(`http://${pinningHttpHost}:3000/pin?address=${self.snapshotDb.id}`)
+        // console.log(await res.text())
 
         self.postMessage({
-          type: 'identity-v1-success',
+          type: 'authenticated-v1',
+          payload: { id: self.snapshotDb.id }
+        })
+
+        self.postMessage({
+          type: 'state-v1',
           payload: {
             id: self.snapshotDb.id,
-            lastEntry: self.snapshotDb.iterator({ limit: 1 }).collect()
+            lastEntry: self.snapshotDb.iterator({ limit: 1 }).collect() || []
           }
         })
-      } catch (e) { self.postMessage({ type: 'identity-v1-error', payload: e }) }
+      } catch (e) { self.postMessage({ type: 'error-v1', payload: e }) }
       break
     case 'snapshot-v1':
       try {
@@ -115,10 +123,13 @@ self.onmessage = async (message) => {
         await self.snapshotDb.load()
         await self.snapshotDb.add(message.data.payload)
         self.postMessage({
-          type: 'snapshot-v1-success',
-          payload: self.snapshotDb.index
+          type: 'state-v1',
+          payload: {
+            id: self.snapshotDb.id,
+            lastEntry: self.snapshotDb.iterator({ limit: 1 }).collect()
+          }
         })
-      } catch (e) { self.postMessage({ type: 'snapshot-v1-error', payload: e }) }
+      } catch (e) { self.postMessage({ type: 'error-v1', payload: e }) }
       break
     default:
       console.warn(`Unknown message type: ${message.data.type}`)
