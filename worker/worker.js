@@ -48,7 +48,13 @@ self.onmessage = async (message) => {
         await self.keystore.open()
         const key = await self.keystore.getKey(id) || await self.keystore.createKey(id)
         const idSignature = await self.keystore.sign(key, id)
-        const tlSignature = self.nacl.crypto_sign(idSignature, self.tlKeys.signing.signSk)
+        
+        let uint=new Uint8Array(idSignature.length);
+        for(var i=0,j=idSignature.length;i<j;++i){
+            uint[i]=idSignature.charCodeAt(i);
+        }
+        
+        const tlSignature = self.nacl.crypto_sign(uint, self.tlKeys.signing.signSk)
 
         // Create an identity with the TallyLabIdentityProvider
         self.identity = await self.tlIdentities.Identities.createIdentity({
@@ -114,7 +120,7 @@ self.onmessage = async (message) => {
             lastEntry: self.snapshotDb.iterator({ limit: 1 }).collect() || []
           }
         })
-      } catch (e) { self.postMessage({ type: 'error-v1', payload: e }) }
+      } catch (e) { self.postMessage({ type: 'error-v1', payload: e.message }) }
       break
     case 'snapshot-v1':
       try {
@@ -129,7 +135,7 @@ self.onmessage = async (message) => {
             lastEntry: self.snapshotDb.iterator({ limit: 1 }).collect()
           }
         })
-      } catch (e) { self.postMessage({ type: 'error-v1', payload: e }) }
+      } catch (e) { self.postMessage({ type: 'error-v1', payload: e.message }) }
       break
     default:
       console.warn(`Unknown message type: ${message.data.type}`)
